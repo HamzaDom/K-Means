@@ -1,10 +1,10 @@
 class Node
 
   class << self
-    def create_nodes(data, similarity_measure)
+    def create_nodes(data)
       nodes = []
       data.each do |position|
-        nodes << new(position, similarity_measure)
+        nodes << new(position)
       end
       nodes
     end
@@ -12,27 +12,26 @@ class Node
 
   attr_accessor :position, :best_distance, :closest_centroid
 
-  def initialize(position, similarity_measure)
+  def initialize(position)
     @position = position
-    @similarity_measure = similarity_measure
   end
 
-  def update_closest_centroid(centroids)
+  def update_closest_centroid(centroids, feats, num_feats, ponderations_distances)
     # If we haven't processed this node we need to give it an initial centroid
     # so that we have something to compare distances against
-    calculate_initial_centroid(centroids.first) unless @closest_centroid
-
+    calculate_initial_centroid(centroids.first, feats, num_feats, ponderations_distances) unless @closest_centroid
     updated = false
-    centroids.each do |centroid|
+    centroids.each_with_index do |centroid, centroid_index|
       # Check if they are in the same position
       if centroid.position == @position
         updated = update_attributes(centroid, 0.0)
         break
       end
 
-      distance = calculate_distance(centroid)
-      if distance < best_distance
-        updated = update_attributes(centroid, distance)
+      pond_distance = ClusterEngine.calcul_distance(self.position, centroid.position, ponderations_distances, feats, num_feats) # array of distances between all the features
+
+      if pond_distance < self.best_distance
+        updated = update_attributes(centroid, pond_distance)
       end
     end
 
@@ -51,17 +50,10 @@ class Node
     true
   end
 
-  def calculate_initial_centroid(centroid)
+  def calculate_initial_centroid(centroid, feats, num_feats, ponderations_distances)
     @closest_centroid = centroid
-    @best_distance = calculate_distance(centroid)
-  end
-
-  def calculate_distance(centroid)
-    begin
-      @position.send(@similarity_measure, centroid.position)
-    rescue NoMethodError
-      raise "Hey, '#{@similarity_measure}' is not a measurement. Read the REAdME for available measurements"
-    end
+    distance =  ClusterEngine.calcul_distance(self.position, centroid.position, ponderations_distances, feats, num_feats) # cette distance est non pondérée 
+    @best_distance = distance
   end
 
 end
