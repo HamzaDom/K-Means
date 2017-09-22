@@ -2,16 +2,21 @@ require 'ext/object'
 
 class KMeans
 
-  attr_reader :centroids, :nodes, :max_iterations
+  attr_reader :centroids, :nodes, :feats, :ponderations_distances, :initialisation_indexes, :num_feats
 
   def initialize(data, options={})
-    distance_measure = options[:distance_measure] || :euclidean_distance
-    @nodes = Node.create_nodes(data, distance_measure)
-    @centroids = options[:custom_centroids] ||
-      Centroid.create_centroids(options[:centroids] || 4, @nodes)
+    @initialisation_indexes = options[:initialisation_indexes]
+    @nodes = Node.create_nodes(data)
+    nbr_centroids = options[:centroids]
+    @centroids = Array.new(){Centroid}
+    
+    initialisation_indexes.each do |ind|
+      @centroids << Centroid.new(data[ind])
+    end
+    @feats = options[:features]
+    @num_feats = options[:num_feats]
+    @ponderations_distances = options[:ponderations_distances]
     @verbose = options[:verbose]
-    @max_iterations = options[:iterations] || 100
-
 
     perform_cluster_process
   end
@@ -28,7 +33,8 @@ class KMeans
 
   def perform_cluster_process
     iterations, updates = 0, 1
-    while updates > 0 && iterations < @max_iterations
+    while updates > 0 && iterations < 500
+      puts "iteration number : #{iterations}"
       iterations += 1
       verbose_message("Iteration #{iterations}")
       updates = 0
@@ -55,8 +61,8 @@ class KMeans
 
   def update_nodes
     sum = 0
-    @nodes.each do |node|
-      sum += node.update_closest_centroid(@centroids)
+    @nodes.each_with_index do |node,node_index|
+      sum += node.update_closest_centroid(@centroids, feats, num_feats, ponderations_distances)
     end
     sum
   end
@@ -66,7 +72,7 @@ class KMeans
     @centroids.each do |centroid|
       nodes = []
       @nodes.each {|n| nodes << n if n.closest_centroid == centroid}
-      centroid.reposition(nodes, centroid_positions)
+      centroid.reposition(nodes, centroid_positions, @feats, @num_feats)
     end
   end
 
